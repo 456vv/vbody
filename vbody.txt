@@ -10,6 +10,8 @@ type Reader struct{													// 读取
 	func (T *Reader) Has(keys ...interface{}) bool 						// 判断
 	func (T *Reader) String(key, def string) string 					// 读取字符串
 	func (T *Reader) StringAnyEqual(eq string, keys ... string) bool	// 字符串判断
+	func (T *Reader) Bool(key string, def bool) bool 					// 读取布尔值
+	func (T *Reader) BoolAnyEqual(eq bool, keys ... string) bool		// 布尔值判断
 	func (T *Reader) Float64(key string, def float64) float64			// 读取浮点数
 	func (T *Reader) Float64AnyEqual(eq float64, keys ... string) bool	// 浮点数判断
 	func (T *Reader) Int64(key string, def int64) int64					// 读取整数
