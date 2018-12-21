@@ -26,7 +26,7 @@ type Reader struct{													// 读取
 	func (T *Reader) IndexFloat64(i int, def float64) float64			// 读取数组的单个浮点数
 	func (T *Reader) IndexInt64(i int, def int64) int64					// 读取数组的单个整数
 	func (T *Reader) IndexArray(i int, def []interface{}) []interface{}	// 读取数组的单个数组
-	func (T *Reader) NewIndexArray(i int, def []interface{}) *Reade		// 读取数组的单个数组*
+	func (T *Reader) NewIndexArray(i int, def []interface{}) *Reader	// 读取数组的单个数组*
 	func (T *Reader) Reset(i interface{}) error							// 重置
 	func (T *Reader) ReadFrom(r io.Reader) error						// 从r读取导入
 	func (T *Reader) MarshalJSON() ([]byte, error)						// 编码json

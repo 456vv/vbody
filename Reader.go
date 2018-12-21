@@ -89,6 +89,34 @@ func (T *Reader) StringAnyEqual(eq string, keys ... string) bool {
 	return false
 }
 
+//读取值是布尔值类型的
+//	key string, def bool	键名，默认值
+//	bool			读取的布尔值
+//	
+//	例如：{"a":true} Bool("a",false) == true
+func (T *Reader) Bool(key string, def bool) bool {
+	T.m.RLock()
+	defer T.m.RUnlock()
+	v, ok := T.M[key].(bool)
+	if !ok {return def}
+	return v
+}
+
+//判断值是否等于eq这个布尔值
+//	eq bool				判断keys是否等于这个布尔值
+//	keys ... string		支持多个键名判断
+//	bool				值等于eq，返回true
+//	
+//	例如：{"a":true}  BoolAnyEqual(false,"a") == false 或 BoolAnyEqual(true,"a") == true
+func (T *Reader) BoolAnyEqual(eq bool, keys ... string) bool {
+	for _, key := range keys {
+		if T.Bool(key, false) == eq {
+			return true
+		}
+	}
+	return false
+}
+
 //读取值是浮点数类型的
 //	key, def float64	键名，默认值
 //	float64				读取的浮点数
