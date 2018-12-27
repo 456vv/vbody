@@ -125,9 +125,12 @@ func (T *Reader) BoolAnyEqual(eq bool, keys ... string) bool {
 func (T *Reader) Float64(key string, def float64) float64 {
 	T.m.RLock()
 	defer T.m.RUnlock()
-	v, ok := T.M[key].(float64)
-	if !ok {return def}
-	return v
+	rv := reflect.ValueOf(T.M[key])
+	switch rv.Kind() {
+	case reflect.Float32,reflect.Float64:
+		return rv.Float()
+	}
+	return def
 }
 
 //判断值是否等于eq这个浮点数
@@ -153,9 +156,12 @@ func (T *Reader) Float64AnyEqual(eq float64, keys ... string) bool {
 func (T *Reader) Int64(key string, def int64) int64 {
 	T.m.RLock()
 	defer T.m.RUnlock()
-	v, ok := T.M[key].(int64)
-	if !ok {return def}
-	return v
+	rv := reflect.ValueOf(T.M[key])
+	switch rv.Kind() {
+	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
+		return rv.Int()
+	}
+	return def
 }
 
 //判断值是否等于eq这个整数
@@ -206,9 +212,10 @@ func (T *Reader) NewInterface(key string, def interface{}) *Reader {
 func (T *Reader) Array(key string, def []interface{}) []interface{} {
 	T.m.RLock()
 	defer T.m.RUnlock()
-	v, ok := T.M[key].([]interface{})
-	if !ok {return def}
-	return v
+	if arr ,ok := T.M[key].([]interface{}); ok {
+		return arr
+	}
+	return def
 }
 
 //读取值是数组类型的
@@ -292,9 +299,12 @@ func (T *Reader) IndexString(i int, def string) string {
 //	
 //	例如：[1,2,[7,8,9,0],4,5,6] IndexInt64(1,11) == 2  或 IndexInt64(2,22) == 22
 func (T *Reader) IndexFloat64(i int, def float64) float64 {
-	v, ok := T.Index(i, nil).(float64)
-	if !ok {return def}
-	return v
+	rv := reflect.ValueOf(T.Index(i, nil))
+	switch rv.Kind() {
+	case reflect.Float32,reflect.Float64:
+		return rv.Float()
+	}
+	return def
 }
 //读取切片类型的值是整数类型的
 //	i int				索引位置
@@ -303,9 +313,12 @@ func (T *Reader) IndexFloat64(i int, def float64) float64 {
 //	
 //	例如：[1,2,[7,8,9,0],4,5,6] IndexInt64(1,11) == 2  或 IndexInt64(2,22) == 22
 func (T *Reader) IndexInt64(i int, def int64) int64 {
-	v, ok := T.Index(i, nil).(int64)
-	if !ok {return def}
-	return v
+	rv := reflect.ValueOf(T.Index(i, nil))
+	switch rv.Kind() {
+	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
+		return rv.Int()
+	}
+	return def
 }
 
 //读取切片类型的值是数组类型的
