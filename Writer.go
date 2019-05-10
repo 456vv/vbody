@@ -47,6 +47,9 @@ func (T *Writer) SetResult(i interface{}) {
 //	key string		键名
 //	i interface{}	值
 func (T *Writer) Result(key string, i interface{}) {
+	if  t, ok := i.([]byte); ok{
+		i = json.RawMessage(t)
+	}
 	v := reflect.ValueOf(T.M["Result"])
 	for ;v.Kind() == reflect.Ptr; v = v.Elem() {}
 	switch v.Kind() {
