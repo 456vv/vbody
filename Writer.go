@@ -67,6 +67,26 @@ func (T *Writer) Result(key string, i interface{}) {
 //	n int64		写入长度
 //	err error	错误
 func (T *Writer) WriteTo(w io.Writer) (n int64, err error) {
+	
+	if err := T.ready(); err != nil {
+		return 0, err
+	}
+	
+	buf := bytes.NewBuffer(nil)
+	buf.Grow(1024)
+	err = json.NewEncoder(buf).Encode(T.M)
+	if err != nil {
+		return 0, err
+	}
+	
+	if rw, ok := w.(http.ResponseWriter); ok {
+		rw.Header().Set("Content-Type", "application/json; charset=utf-8")
+	}
+	
+	return buf.WriteTo(w)
+}
+
+func (T *Writer) ready() error {
 	_, ok := T.M["Status"]
 	if !ok {
 		T.M["Status"]=200
@@ -77,21 +97,25 @@ func (T *Writer) WriteTo(w io.Writer) (n int64, err error) {
 	}else if result, ok := resultInf.(json.Marshaler); ok {
 		rbyte, err := result.MarshalJSON()
 		if err != nil {
-			return 0, err
+			return err
 		}
 		T.M["Result"]=json.RawMessage(rbyte)
 	}else if rbyte, ok := resultInf.([]byte); ok {
 		T.M["Result"]=json.RawMessage(rbyte)
 	}
-	if rw, ok := w.(http.ResponseWriter); ok {
-		rw.Header().Set("Content-Type", "application/json; charset=utf-8")
-	}
-	buf := bytes.NewBuffer(nil)
-	buf.Grow(1024)
-	err = json.NewEncoder(buf).Encode(T.M)
-	if err != nil {
-		return 0, err
-	}
+	return nil
+}
+
+//字符串json格式
+//	string		json格式
+func (T *Writer) String() string {
 	
-	return buf.WriteTo(w)
+	if err := T.ready(); err != nil {
+		return "{}"
+	}
+	b, err := json.Marshal(T.M)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
 }

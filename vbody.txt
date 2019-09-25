@@ -45,4 +45,4 @@ type Writer struct{													// 写入
 	func (T *Writer) SetResult(i interface{})							// 设置结果
 	func (T *Writer) Result(key string, i interface{})					// 结果
 	func (T *Writer) WriteTo(w io.Writer) (n int64, err error) 			// 写入到w
-
+	func (T *Writer) String() string									// 字符串json格式
