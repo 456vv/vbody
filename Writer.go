@@ -111,11 +111,11 @@ func (T *Writer) ready() error {
 func (T *Writer) String() string {
 	
 	if err := T.ready(); err != nil {
-		return "{}"
+		return err.Error()
 	}
 	b, err := json.Marshal(T.M)
 	if err != nil {
-		return "{}"
+		return err.Error()
 	}
 	return string(b)
 }
