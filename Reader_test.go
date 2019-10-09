@@ -31,7 +31,7 @@ func Test_Reader_NewReader(t *testing.T) {
 
 func Test_Reader_IsNil(t *testing.T){
 	bodyr := NewReader(nil)
-	err := bodyr.Reset([]byte(`{"a":null,"c":0}`))
+	err := bodyr.Reset([]byte(`{"a":null,"c":0, "d":[null,0]}`))
 	if err != nil  {
 		t.Fatal(err)
 	}
@@ -42,6 +42,17 @@ func Test_Reader_IsNil(t *testing.T){
 		t.Fatal("错误")
 	}
 	if bodyr.IsNil("c") {
+		t.Fatal("错误")
+	}
+	d := bodyr.NewArray("d", nil)
+	if !d.Has(0,1) {
+		t.Fatal("错误")
+	}
+	
+	if d.Index(0, 1) != nil {
+		t.Fatal("错误")
+	}
+	if d.Index(1, 1) == nil {
 		t.Fatal("错误")
 	}
 }
