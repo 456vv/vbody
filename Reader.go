@@ -33,6 +33,36 @@ func NewReader(i interface{}) *Reader {
 func (T *Reader) Err() error {
 	return T.err
 }
+
+func (T *Reader) isNil(key interface{}) bool {
+	T.m.RLock()
+	defer T.m.RUnlock()
+	switch v := key.(type) {
+	case string:
+		if a, ok := T.M[v]; ok {
+			return reflect.ValueOf(&a).Elem().IsNil()
+		}
+	case int:
+		if len(T.A) > v {
+			return T.A[v] == nil
+		}
+	}
+	return true
+}
+
+//是nil值
+//	keys ...interface{}		键名，如果需要判断切片的长度，可以传入int类型。
+//	bool					是nil值，返回true
+func (T *Reader) IsNil(keys ...interface{}) bool {
+	for _, key := range keys {
+		if !T.isNil(key) {
+			return false
+		}
+	}
+	return true
+}
+
+
 func (T *Reader) has(key interface{}) bool {
 	T.m.RLock()
 	defer T.m.RUnlock()
@@ -358,6 +388,30 @@ func (T *Reader) Reset(i interface{}) error {
 		T.A = ta
 		return nil
 	}
+	
+	//原类型判断
+	switch iv := i.(type) {
+	case io.Reader:
+		err := json.NewDecoder(iv).Decode(&T.M)
+		if err == nil {
+			T.A = ta
+		}
+		return err
+	case *string:
+		err := json.NewDecoder(bytes.NewBufferString(*iv)).Decode(&T.M)
+		if err == nil {
+			T.A = ta
+		}
+		return err
+	case []byte:
+		err := json.NewDecoder(bytes.NewBuffer(iv)).Decode(&T.M)
+		if err == nil {
+			T.A = ta
+		}
+		return err
+  	}
+	
+	//其它类型
 	rv := reflect.ValueOf(i)
 	rv = vweb.InDirect(rv)
 	switch typ := rv.Kind(); typ {
@@ -376,29 +430,8 @@ func (T *Reader) Reset(i interface{}) error {
 		}
 		return errors.New("vbody.Reader.Reset: 无法转换数据类型为[]interface{}")
 	default:
-		switch iv := i.(type) {
-		case io.Reader:
-			err := json.NewDecoder(iv).Decode(&T.M)
-			if err == nil {
-				T.A = ta
-			}
-			return err
-		case *string:
-			err := json.NewDecoder(bytes.NewBufferString(*iv)).Decode(&T.M)
-			if err == nil {
-				T.A = ta
-			}
-			return err
-		case []byte:
-			err := json.NewDecoder(bytes.NewBuffer(iv)).Decode(&T.M)
-			if err == nil {
-				T.A = ta
-			}
-			return err
-	  	}
 	 	return errors.New("vbody.Reader.Reset: 无法转换数据类型为"+typ.String())
 	 }
-	 return nil
 }
 
 //从r读取字节串并解析成Reader

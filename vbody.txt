@@ -7,6 +7,7 @@ type Reader struct{													// 读取
 }
 	func NewReader(i interface{}) *Reader								// 读取
 	func (T *Reader) Err() error										// 错误
+	func (T *Reader) IsNil(keys ...interface{}) bool					// 是nil
 	func (T *Reader) Has(keys ...interface{}) bool 						// 判断
 	func (T *Reader) String(key, def string) string 					// 读取字符串
 	func (T *Reader) StringAnyEqual(eq string, keys ... string) bool	// 字符串判断

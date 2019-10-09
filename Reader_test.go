@@ -28,3 +28,14 @@ func Test_Reader_NewReader(t *testing.T) {
 		t.Fatalf("预测 4，结果 %d",d)
 	}
 }
+
+func Test_Reader_IsNil(t *testing.T){
+	bodyr := NewReader(nil)
+	err := bodyr.Reset([]byte(`{"a":null}`))
+	if err != nil  {
+		t.Fatal(err)
+	}
+	if !bodyr.IsNil("a") {
+		t.Fatal("错误")
+	}
+}
