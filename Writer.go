@@ -7,6 +7,7 @@ import(
 	"reflect"
 	"net/http"
 	"bytes"
+	"text/template"
 )
 
 type Writer struct{
@@ -27,14 +28,14 @@ func (T *Writer) Status(d int) {
 //提示内容
 //	s interface{}	内容
 func (T *Writer) Message(s interface{}) {
-	T.M["Message"]=s
+	T.M["Message"]=template.JSEscaper(s)
 }
 
 //提示内容，支持fmt.Sprintf 格式
 //	f string			格式
 //	a ...interface{}	参数
 func (T *Writer) Messagef(f string, a ...interface{}) {
-	T.M["Message"]=fmt.Sprintf(f, a...)
+	T.M["Message"]=template.JSEscapeString(fmt.Sprintf(f, a...))
 }
 
 //设置结果
