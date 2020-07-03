@@ -5,7 +5,6 @@ import(
 	"reflect"
 	"errors"
 	"io"
-	"github.com/456vv/vweb"
 	"bytes"
 	"sync"
 )
@@ -413,7 +412,7 @@ func (T *Reader) Reset(i interface{}) error {
 	
 	//其它类型
 	rv := reflect.ValueOf(i)
-	rv = vweb.InDirect(rv)
+	rv = reflect.Indirect(rv)
 	switch typ := rv.Kind(); typ {
 	case reflect.Map:
 		if m, ok := rv.Interface().(map[string]interface{}); ok {
