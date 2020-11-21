@@ -435,15 +435,16 @@ func (T *Reader) Reset(i interface{}) error {
 
 //从r读取字节串并解析成Reader
 //	r io.Reader	字节串读接口
+//	int64		读取长度
 //	error		错误
-func (T *Reader) ReadFrom(r io.Reader) error {
+func (T *Reader) ReadFrom(r io.Reader) (int64, error) {
 	T.m.Lock()
 	defer T.m.Unlock()
 	err := json.NewDecoder(r).Decode(&T.M)
 	if err == nil && len(T.A) > 0 {
 		T.A = make([]interface{},0)
 	}
-	return err
+	return 0, err
 }
 
 //Reader转字节串
