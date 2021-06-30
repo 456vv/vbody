@@ -158,6 +158,8 @@ func (T *Reader) Float64(key string, def float64) float64 {
 	switch rv.Kind() {
 	case reflect.Float32,reflect.Float64:
 		return rv.Float()
+	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
+		return float64(rv.Int())
 	}
 	return def
 }
@@ -170,7 +172,7 @@ func (T *Reader) Float64(key string, def float64) float64 {
 //	例如：{"a":123}  Float64AnyEqual(456,"a") == false 或 Float64AnyEqual(123,"a") == true
 func (T *Reader) Float64AnyEqual(eq float64, keys ... string) bool {
 	for _, key := range keys {
-		if T.Float64(key, -1) == eq {
+		if T.Float64(key, 0) == eq {
 			return true
 		}
 	}
@@ -189,6 +191,8 @@ func (T *Reader) Int64(key string, def int64) int64 {
 	switch rv.Kind() {
 	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
 		return rv.Int()
+	case reflect.Float32,reflect.Float64:
+		return int64(rv.Float())
 	}
 	return def
 }
@@ -201,7 +205,7 @@ func (T *Reader) Int64(key string, def int64) int64 {
 //	例如：{"a":123}  Int64AnyEqual(456,"a") == false 或 Int64AnyEqual(123,"a") == true
 func (T *Reader) Int64AnyEqual(eq int64, keys ... string) bool {
 	for _, key := range keys {
-		if T.Int64(key, -1) == eq {
+		if T.Int64(key, 0) == eq {
 			return true
 		}
 	}
@@ -332,6 +336,8 @@ func (T *Reader) IndexFloat64(i int, def float64) float64 {
 	switch rv.Kind() {
 	case reflect.Float32,reflect.Float64:
 		return rv.Float()
+	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
+		return float64(rv.Int())
 	}
 	return def
 }
@@ -346,6 +352,8 @@ func (T *Reader) IndexInt64(i int, def int64) int64 {
 	switch rv.Kind() {
 	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
 		return rv.Int()
+	case reflect.Float32,reflect.Float64:
+		return int64(rv.Float())
 	}
 	return def
 }
