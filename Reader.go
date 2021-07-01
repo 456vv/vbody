@@ -13,6 +13,7 @@ type Reader struct{
 	M	map[string]interface{}				// 记录对象
 	A	[]interface{}						// 记录数组
 	m	sync.RWMutex						// 安全锁
+	noZero bool								// 不可以为零
 	err	error								// 错误
 }
 
@@ -25,6 +26,12 @@ func NewReader(i interface{}) *Reader {
 		bodyr.err = bodyr.Reset(i)
 	}
 	return bodyr
+}
+
+//值不可以为零值，如果为零值，则读取是def设置值。
+// y bool	true不可以为零，false可以为零值
+func (T *Reader) NoZero(y bool) {
+	T.noZero=y
 }
 
 //错误
@@ -99,7 +106,7 @@ func (T *Reader) String(key, def string) string {
 	T.m.RLock()
 	defer T.m.RUnlock()
 	v, ok := T.M[key].(string)
-	if !ok {return def}
+	if !ok || T.noZero && v=="" {return def}
 	return v
 }
 
@@ -157,9 +164,17 @@ func (T *Reader) Float64(key string, def float64) float64 {
 	rv := reflect.ValueOf(T.M[key])
 	switch rv.Kind() {
 	case reflect.Float32,reflect.Float64:
-		return rv.Float()
+		f := rv.Float()
+		if T.noZero && f == 0 {
+			return def
+		}
+		return f
 	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
-		return float64(rv.Int())
+		f := float64(rv.Int())
+		if T.noZero && f == 0 {
+			return def
+		}
+		return f
 	}
 	return def
 }
@@ -190,9 +205,17 @@ func (T *Reader) Int64(key string, def int64) int64 {
 	rv := reflect.ValueOf(T.M[key])
 	switch rv.Kind() {
 	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
-		return rv.Int()
+		i := rv.Int()
+		if T.noZero && i == 0 {
+			return def
+		}
+		return i
 	case reflect.Float32,reflect.Float64:
-		return int64(rv.Float())
+		i := int64(rv.Float())
+		if T.noZero && i == 0 {
+			return def
+		}
+		return i
 	}
 	return def
 }
@@ -222,7 +245,7 @@ func (T *Reader) Interface(key string, def interface{}) interface{} {
 	T.m.RLock()
 	defer T.m.RUnlock()
 	v, ok := T.M[key]
-	if !ok {return def}
+	if !ok || T.noZero && v==nil {return def}
 	return v
 }
 
@@ -245,10 +268,11 @@ func (T *Reader) NewInterface(key string, def interface{}) *Reader {
 func (T *Reader) Array(key string, def []interface{}) []interface{} {
 	T.m.RLock()
 	defer T.m.RUnlock()
-	if arr ,ok := T.M[key].([]interface{}); ok {
-		return arr
+	v ,ok := T.M[key].([]interface{})
+	if !ok || T.noZero && def != nil && len(v) == 0{
+		return def
 	}
-	return def
+	return v
 }
 
 //读取值是数组类型的
@@ -296,7 +320,7 @@ func (T *Reader) NewSlice(s, e int) *Reader {
 //	例如：[1,2,3,4,5,6] Index(1,11) == 1  或 Index(8,22) == 22
 func (T *Reader) Index(i int, def interface{}) interface{} {
 	as := T.Slice(i,i+1)
-	if len(as) == 0 {
+	if len(as) == 0 || T.noZero && as[0] == nil {
 		return def
 	}
 	return as[0]
@@ -319,8 +343,8 @@ func (T *Reader) NewIndex(i int, def interface{}) *Reader {
 //	
 //	例如：["1","2",[7,8,9,0],"4","5","6"] IndexString(1,"11") == "2"  或 IndexString(2,"22") == "22"
 func (T *Reader) IndexString(i int, def string) string {
-	v, ok := T.Index(i, nil).(string)
-	if !ok {return def}
+	v, ok := T.Index(i, def).(string)
+	if !ok || T.noZero && v == "" {return def}
 	return v
 }
 
@@ -332,12 +356,20 @@ func (T *Reader) IndexString(i int, def string) string {
 //	
 //	例如：[1,2,[7,8,9,0],4,5,6] IndexInt64(1,11) == 2  或 IndexInt64(2,22) == 22
 func (T *Reader) IndexFloat64(i int, def float64) float64 {
-	rv := reflect.ValueOf(T.Index(i, nil))
+	rv := reflect.ValueOf(T.Index(i, def))
 	switch rv.Kind() {
 	case reflect.Float32,reflect.Float64:
-		return rv.Float()
+		f := rv.Float()
+		if T.noZero && f == 0 {
+			return def
+		}
+		return f
 	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
-		return float64(rv.Int())
+		f := float64(rv.Int())
+		if T.noZero && f == 0 {
+			return def
+		}
+		return f
 	}
 	return def
 }
@@ -351,9 +383,17 @@ func (T *Reader) IndexInt64(i int, def int64) int64 {
 	rv := reflect.ValueOf(T.Index(i, nil))
 	switch rv.Kind() {
 	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
-		return rv.Int()
+		i := rv.Int()
+		if T.noZero && i == 0 {
+			return def
+		}
+		return i
 	case reflect.Float32,reflect.Float64:
-		return int64(rv.Float())
+		i := int64(rv.Float())
+		if T.noZero && i == 0 {
+			return def
+		}
+		return i
 	}
 	return def
 }
@@ -366,7 +406,7 @@ func (T *Reader) IndexInt64(i int, def int64) int64 {
 //	例如：[[1],[2]] IndexArray(1,[]interface{1,2}) == [2] 或 IndexArray(3,[]interface{1,2}) == [1,2]
 func (T *Reader) IndexArray(i int, def []interface{}) []interface{} {
 	v, ok := T.Index(i, nil).([]interface{})
-	if !ok {return def}
+	if !ok || T.noZero && def != nil && len(v) == 0 {return def}
 	return v
 }
 
