@@ -30,8 +30,9 @@ func NewReader(i interface{}) *Reader {
 
 //值不可以为零值，如果为零值，则读取是def设置值。
 // y bool	true不可以为零，false可以为零值
-func (T *Reader) NoZero(y bool) {
+func (T *Reader) NoZero(y bool) *Reader {
 	T.noZero=y
+	return T
 }
 
 //错误
