@@ -257,7 +257,9 @@ func (T *Reader) Interface(key string, def interface{}) interface{} {
 //	
 //	例如：{"a":{"b":123}} NewInterface("a",*{"b":456}) == *{"b":123} 或 NewInterface("b",*{"b":456}) == *{"b":456}
 func (T *Reader) NewInterface(key string, def interface{}) *Reader {
-	return NewReader(T.Interface(key, def))
+	r := NewReader(T.Interface(key, def))
+	r.noZero = T.noZero
+	return r
 }
 
 //读取值是数组类型的
@@ -283,7 +285,9 @@ func (T *Reader) Array(key string, def []interface{}) []interface{} {
 //	
 //	例如：{"a":[1,3,4,5,6]} Array("a",[7,8,9,0]) == *[1,3,4,5,6] 或 Array("b",[7,8,9,0]) == *[7,8,9,0]
 func (T *Reader) NewArray(key string, def []interface{}) *Reader {
-	return NewReader(T.Array(key, def))
+	r := NewReader(T.Array(key, def))
+	r.noZero = T.noZero
+	return r
 }
 
 //读取值是切片类型的，设定开始和结束位置来读取。
@@ -310,7 +314,9 @@ func (T *Reader) Slice(s, e int) []interface{} {
 //	
 //	例如：[1,2,3,4,5,6] NewSlice(1,2) == *[2]  或 NewSlice(8,9) == *[]
 func (T *Reader) NewSlice(s, e int) *Reader {
-	return NewReader(T.Slice(s, e))
+	r := NewReader(T.Slice(s, e))
+	r.noZero = T.noZero
+	return r
 }
 
 //读取值是切片类型的
@@ -334,7 +340,9 @@ func (T *Reader) Index(i int, def interface{}) interface{} {
 //	
 //	例如：[1,2,[7,8,9,0],4,5,6] NewIndex(2,[11,22,33]) == *[7,8,9,0]  或 NewIndex(3,[11,22,33]) == *[] 或 NewIndex(33,[11,22,33]) == *[11,22,33]
 func (T *Reader) NewIndex(i int, def interface{}) *Reader {
-	return NewReader(T.Index(i, def))
+	r := NewReader(T.Index(i, def))
+	r.noZero = T.noZero
+	return r
 }
 
 //读取切片类型的值是字符串类型的
@@ -418,7 +426,9 @@ func (T *Reader) IndexArray(i int, def []interface{}) []interface{} {
 //	
 //	例如：[[1],[2]] NewIndexArray(1,[]interface{1,2}) == *[2] 或 NewIndexArray(3,[]interface{1,2}) == *[1,2]
 func (T *Reader) NewIndexArray(i int, def []interface{}) *Reader {
-	return NewReader(T.IndexArray(i, def))
+	r := NewReader(T.IndexArray(i, def))
+	r.noZero = T.noZero
+	return r
 }
 
 //重置
