@@ -6,6 +6,7 @@ type Reader struct{                                                 // 读取
     err error                                                           // 错误
 }
     func NewReader(i interface{}) *Reader                               // 读取
+    func (T *Reader) NoZero(y bool) *Reader                             // 键名不存在或值为零，强制使用默认。否则仅键名不存在使用默认值。
     func (T *Reader) Err() error                                        // 错误
     func (T *Reader) IsNil(keys ...interface{}) bool                    // 是nil
     func (T *Reader) Has(keys ...interface{}) bool                      // 判断

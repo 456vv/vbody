@@ -56,3 +56,60 @@ func Test_Reader_IsNil(t *testing.T){
 		t.Fatal("错误")
 	}
 }
+
+func Test_Reader_NoZero(t *testing.T){
+	bodyr := NewReader(nil)
+	err := bodyr.Reset([]byte(`{"a":null,"c":0, "d":[null,0]}`))
+	if err != nil  {
+		t.Fatal(err)
+	}
+	nr := bodyr.NoZero(true)
+	if !nr.noZero {
+		t.Fatal("错误")
+	}
+	i := nr.Int64("c", 1)
+	if i != 1 {
+		t.Fatal("错误")
+	}
+	if bodyr.noZero {
+		t.Fatal("错误")
+	}
+	err = bodyr.Reset([]byte(`{"b":"1"}`))
+	if err != nil  {
+		t.Fatal(err)
+	}
+	if !nr.StringAnyEqual("", "b") {
+		t.Fatal("错误")
+	}
+	//t.Log(bodyr.M, nr.M)
+}
+
+
+func Test_Reader_Reset(t *testing.T){
+	bodyr := NewReader(nil)
+	err := bodyr.Reset([]byte(`{"a":[1,2,3,4]}`))
+	if err != nil  {
+		t.Fatal(err)
+	}
+	bodyr = bodyr.NewArray("a",nil)
+	nr := bodyr.NoZero(true)
+	
+	bodyr.Reset(map[string]interface{}{"1":"1"})
+	if err != nil  {
+		t.Fatal(err)
+	}
+	if len(bodyr.A) != 0 || len(nr.A) == 0 {
+		t.Fatal(bodyr.A, nr.A)
+	}
+}
+
+func Test_Reader_1(t *testing.T){
+	bodyr := NewReader(nil)
+	err := bodyr.Reset([]byte(`{"a":[1,2,3,4]}`))
+	if err != nil  {
+		t.Fatal(err)
+	}
+	if bodyr.String("a","123") != "123" {
+		t.Fatal("错误")
+	}
+}
