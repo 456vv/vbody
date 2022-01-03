@@ -31,15 +31,21 @@ func NewReader(i interface{}) *Reader {
 //值不可以为零值，如果为零值，则读取是def设置值。
 // y bool	true不可以为零，false可以为零值
 func (T *Reader) NoZero(y bool) *Reader {
-	t := *T
+	t := new(Reader)
+	*t = *T
 	t.noZero=y
-	return &t
+	return t
 }
 
 //错误
 //	error	如果 Reader.Reset 重置有误，可以从这里得到相关错误。
 func (T *Reader) Err() error {
 	return T.err
+}
+
+//变更
+func (T *Reader) Change() *Change {
+	return &Change{T}
 }
 
 func (T *Reader) isNil(key interface{}) bool {
@@ -534,7 +540,6 @@ func (T *Reader) Reset(i interface{}) error {
 		T.A = T.A[0:0]
 		return nil
 	}
-	
 	
 	//其它类型
 	rv := reflect.ValueOf(i)
