@@ -1,54 +1,47 @@
 package vbody
-	
-import(
-	"encoding/json"
-	"reflect"
-	"errors"
-	"io"
+
+import (
 	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"reflect"
 	"sync"
 )
-	
-type Reader struct{
-	M	map[string]interface{}				// 记录对象
-	A	[]interface{}						// 记录数组
-	m	sync.RWMutex						// 安全锁
-	noZero bool								// 不可以为零
-	err	error								// 错误
+
+type Reader struct {
+	M   map[string]any // 记录对象
+	A   []any          // 记录数组
+	m   sync.RWMutex   // 安全锁
+	err error          // 错误
 }
 
-//读取
-//	i interface{}	数据，支持map，array，slice，io.Reader, *string，[]byte。你也可以对 Reader.M 或 Reader.A 进行赋值。	
+// 读取
+//
+//	i any	数据，支持map，array，slice，io.Reader, *string，[]byte。你也可以对 Reader.M 或 Reader.A 进行赋值。
 //	*Reader			读取对象
-func NewReader(i interface{}) *Reader {
-	bodyr := &Reader{M:make(map[string]interface{}), A:make([]interface{},0)}
+func NewReader(i any) *Reader {
+	bodyr := &Reader{M: make(map[string]any), A: make([]any, 0)}
 	if i != nil {
 		bodyr.err = bodyr.Reset(i)
 	}
 	return bodyr
 }
 
-//值不可以为零值，如果为零值，则读取是def设置值。
-// y bool	true不可以为零，false可以为零值
-func (T *Reader) NoZero(y bool) *Reader {
-	t := new(Reader)
-	*t = *T
-	t.noZero=y
-	return t
-}
-
-//错误
+// 错误
+//
 //	error	如果 Reader.Reset 重置有误，可以从这里得到相关错误。
 func (T *Reader) Err() error {
 	return T.err
 }
 
-//变更
+// 变更
 func (T *Reader) Change() *Change {
 	return &Change{T}
 }
 
-func (T *Reader) isNil(key interface{}) bool {
+func (T *Reader) isNil(key any) bool {
 	T.m.RLock()
 	defer T.m.RUnlock()
 	switch v := key.(type) {
@@ -64,10 +57,11 @@ func (T *Reader) isNil(key interface{}) bool {
 	return true
 }
 
-//是nil值
-//	keys ...interface{}		键名，如果需要判断切片的长度，可以传入int类型。
-//	bool					是nil值，返回true
-func (T *Reader) IsNil(keys ... interface{}) bool {
+// 是nil值
+//
+//	keys ...any		键名，如果需要判断切片的长度，可以传入int类型。
+//	bool			是nil值，返回true
+func (T *Reader) IsNil(keys ...any) bool {
 	for _, key := range keys {
 		if !T.isNil(key) {
 			return false
@@ -76,8 +70,7 @@ func (T *Reader) IsNil(keys ... interface{}) bool {
 	return true
 }
 
-
-func (T *Reader) has(key interface{}) bool {
+func (T *Reader) has(key any) bool {
 	T.m.RLock()
 	defer T.m.RUnlock()
 	switch v := key.(type) {
@@ -91,12 +84,13 @@ func (T *Reader) has(key interface{}) bool {
 	return false
 }
 
-//检查键是否存在
-//	keys ...interface{}		键名，如果需要判断切片的长度，可以传入int类型。当然也可以这样 len(Reader.A)
+// 检查键是否存在
+//
+//	keys ...any		键名，如果需要判断切片的长度，可以传入int类型。当然也可以这样 len(Reader.A)
 //	bool					存在，返回true
-//	
+//
 //	例如：{"a":"b"} Has("a") == true 或 Has("b") == false
-func (T *Reader) Has(keys ... interface{}) bool {
+func (T *Reader) Has(keys ...any) bool {
 	for _, key := range keys {
 		if !T.has(key) {
 			return false
@@ -105,16 +99,52 @@ func (T *Reader) Has(keys ... interface{}) bool {
 	return true
 }
 
-//读取值是字符串类型的
+func (T *Reader) index(i int) any {
+	if i >= len(T.A) {
+		return nil
+	}
+	return T.A[i]
+}
+
+func (T *Reader) val(key any) any {
+	T.m.RLock()
+	defer T.m.RUnlock()
+
+	var v any
+	switch kv := key.(type) {
+	case string:
+		v = T.M[kv]
+	case int:
+		v = T.index(kv)
+	}
+	return v
+}
+
+// 判断值是否等于eq
+//
+//	eq any				判断keys是否等于
+//	keys ... any		支持多个键名判断
+//	bool				值等于eq，返回true
+//
+//	例如：{"a":"b"}  Equal("","a") == false 或 Equal("b","a") == true
+func (T *Reader) Equal(eq any, keys ...any) bool {
+	for _, key := range keys {
+		if reflect.DeepEqual(T.val(key), eq) {
+			return true
+		}
+	}
+	return false
+}
+
+// 读取值是字符串类型的
+//
 //	key, def string	键名，默认值
 //	string			读取的字符串
-//	
+//
 //	例如：{"a":"b"} String("a","") == "b"
-func (T *Reader) String(key string, def ...string) string {
-	T.m.RLock()
-	defer T.m.RUnlock()
-	v, ok := T.M[key].(string)
-	if !ok || T.noZero && v=="" {
+func (T *Reader) String(key any, def ...string) string {
+	v, _ := T.val(key).(string)
+	if v == "" {
 		for _, f := range def {
 			if f != "" {
 				return f
@@ -124,288 +154,75 @@ func (T *Reader) String(key string, def ...string) string {
 	return v
 }
 
-//判断值是否等于eq这个字符串
-//	eq string			判断keys是否等于这个字符串
-//	keys ... string		支持多个键名判断
-//	bool				值等于eq，返回true
-//	
-//	例如：{"a":"b"}  StringAnyEqual("","a") == false 或 StringAnyEqual("b","a") == true
-func (T *Reader) StringAnyEqual(eq string, keys ... string) bool {
-	for _, key := range keys {
-		if T.String(key) == eq {
-			return true
-		}
-	}
-	return false
-}
-
-//读取值是布尔值类型的
-//	key string, def bool	键名，默认值
+// 读取值是布尔值类型的
+//
+//	key any, def bool	键名，默认值
 //	bool			读取的布尔值
-//	
+//
 //	例如：{"a":true} Bool("a",false) == true
-func (T *Reader) Bool(key string, def ... bool) bool {
-	T.m.RLock()
-	defer T.m.RUnlock()
-	v, ok := T.M[key].(bool)
-	if !ok {
+func (T *Reader) Bool(key any, def ...bool) bool {
+	v, _ := T.val(key).(bool)
+	if !v {
 		for _, f := range def {
-			if f != false {
+			if f {
 				return f
 			}
 		}
-		return false
 	}
 	return v
 }
 
-//判断值是否等于eq这个布尔值
-//	eq bool				判断keys是否等于这个布尔值
-//	keys ... string		支持多个键名判断
-//	bool				值等于eq，返回true
-//	
-//	例如：{"a":true}  BoolAnyEqual(false,"a") == false 或 BoolAnyEqual(true,"a") == true
-func (T *Reader) BoolAnyEqual(eq bool, keys ... string) bool {
-	for _, key := range keys {
-		if T.Bool(key) == eq {
-			return true
-		}
-	}
-	return false
-}
-
-//读取值是浮点数类型的
+// 读取值是浮点数类型的
+//
 //	key, def float64	键名，默认值
 //	float64				读取的浮点数
-//	
+//
 //	例如：{"a":123} Float64（"a",123） == 123
-func (T *Reader) Float64(key string, def ... float64) float64 {
-	T.m.RLock()
-	defer T.m.RUnlock()
-	rv := reflect.ValueOf(T.M[key])
+func (T *Reader) Float64(key any, def ...float64) float64 {
 	var (
-		f64 float64
-		notExists bool
+		rv = reflect.ValueOf(T.val(key))
+		v  float64
 	)
+
 	switch rv.Kind() {
-	case reflect.Float32,reflect.Float64:
-		f64 = rv.Float()
-	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
-		f64 = float64(rv.Int())
-	default:
-		notExists = true
+	case reflect.Float32, reflect.Float64:
+		v = rv.Float()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v = float64(rv.Int())
 	}
-	//1，强制不为0
-	//2，不存在该字段
-	if T.noZero && f64 == 0 || notExists {
+
+	if v == 0 {
 		for _, f := range def {
 			if f != 0 {
 				return f
 			}
 		}
 	}
-	return f64
+	return v
 }
 
-//判断值是否等于eq这个浮点数
-//	eq string			判断keys是否等于这个浮点数
-//	keys ... string		支持多个键名判断
-//	bool				值等于eq，返回true
-//	
-//	例如：{"a":123}  Float64AnyEqual(456,"a") == false 或 Float64AnyEqual(123,"a") == true
-func (T *Reader) Float64AnyEqual(eq float64, keys ... string) bool {
-	for _, key := range keys {
-		if T.Float64(key) == eq {
-			return true
-		}
-	}
-	return false
-}
-
-//读取值是整数类型的
+// 读取值是整数类型的
+//
 //	key, def int64	键名，默认值
 //	int64				读取的整数
-//	
-//	例如：{"a":123} Int64("a",0) == 123 或 Int64("b",456) == 456
-func (T *Reader) Int64(key string, def ... int64) int64 {
-	T.m.RLock()
-	defer T.m.RUnlock()
-	rv := reflect.ValueOf(T.M[key])
-	var (
-		i64 int64
-		notExists bool
-	)
-	switch rv.Kind() {
-	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
-		i64 = rv.Int()
-	case reflect.Float32,reflect.Float64:
-		i64 = int64(rv.Float())
-	default:
-		notExists = true
-	}
-	
-	//1，强制不为0
-	//2，不存在该字段
-	if T.noZero && i64 == 0 || notExists {
-		for _, f := range def {
-			if f != 0 {
-				return f
-			}
-		}
-	}
-	return i64
-}
-
-//判断值是否等于eq这个整数
-//	eq int64			判断keys是否等于这个整数
-//	keys ... int64		支持多个键名判断
-//	bool				值等于eq，返回true
-//	
-//	例如：{"a":123}  Int64AnyEqual(456,"a") == false 或 Int64AnyEqual(123,"a") == true
-func (T *Reader) Int64AnyEqual(eq int64, keys ... string) bool {
-	for _, key := range keys {
-		if T.Int64(key) == eq {
-			return true
-		}
-	}
-	return false
-}
-
-//读取值是接口类型的
-//	key string			键名
-//	def interface{}		默认值
-//	interface{}			读取的接口类型，需要转换
-//	
-//	例如：{"a":"b"} Interface("a","c") == "b" 或 Interface("b","c") == "c"
-func (T *Reader) Interface(key string, def ... interface{}) interface{} {
-	T.m.RLock()
-	defer T.m.RUnlock()
-	v, ok := T.M[key]
-	if !ok || T.noZero && v==nil {
-		for _, f := range def {
-			if f != nil {
-				return f
-			}
-		}
-	}
-	return v
-}
-
-//读取值是接口类型的
-//	key string			键名
-//	def interface{}		默认值
-//	interface{}			读取的接口类型，需要转换
-//	
-//	例如：{"a":{"b":123}} NewInterface("a",*{"b":456}) == *{"b":123} 或 NewInterface("b",*{"b":456}) == *{"b":456}
-func (T *Reader) NewInterface(key string, def ... interface{}) *Reader {
-	r := NewReader(T.Interface(key, def...))
-	r.noZero = T.noZero
-	return r
-}
-
-//读取值是数组类型的
-//	key string				键名
-//	def []interface{}		默认值
-//	[]interface{}			读取的数组类型
-//	
-//	例如：{"a":[1,3,4,5,6]} Array("a",[7,8,9,0]) == [1,3,4,5,6] 或 Array("b",[7,8,9,0]) == [7,8,9,0]
-func (T *Reader) Array(key string, def ... []interface{}) []interface{} {
-	T.m.RLock()
-	defer T.m.RUnlock()
-	v ,ok := T.M[key].([]interface{})
-	if !ok || T.noZero && len(v) == 0 {
-		for _, f := range def {
-			if f != nil {
-				return f
-			}
-		}
-	}
-	return v
-}
-
-//读取值是数组类型的
-//	key string				键名
-//	def []interface{}		默认值
-//	[]interface{}			读取的数组类型
-//	
-//	例如：{"a":[1,3,4,5,6]} Array("a",[7,8,9,0]) == *[1,3,4,5,6] 或 Array("b",[7,8,9,0]) == *[7,8,9,0]
-func (T *Reader) NewArray(key string, def ... []interface{}) *Reader {
-	r := NewReader(T.Array(key, def...))
-	r.noZero = T.noZero
-	return r
-}
-
-//读取值是切片类型的，设定开始和结束位置来读取。
-//	s, e int		开始，结束。
-//	[]interface{}	读取到的切片
 //
-//	例如：[1,2,3,4,5,6] Slice(1,2) == [2]  或 Slice(8,9) == []
-func (T *Reader) Slice(s, e int) []interface{} {
-	T.m.RLock()
-	defer T.m.RUnlock()
-	l := len(T.A)
-	if s > l {
-		return []interface{}{}
-	}
-	if e > l {
-		e = l
-	}
-	return T.A[s:e]
-}
+//	例如：{"a":123} Int64("a",0) == 123 或 Int64("b",456) == 456
+func (T *Reader) Int64(key any, def ...int64) int64 {
+	var (
+		rv = reflect.ValueOf(T.val(key))
+		v  int64
+	)
 
-//读取值是切片类型的，设定开始和结束位置来读取。
-//	s, e int		开始，结束。
-//	*Reader			读取到的切片对象
-//	
-//	例如：[1,2,3,4,5,6] NewSlice(1,2) == *[2]  或 NewSlice(8,9) == *[]
-func (T *Reader) NewSlice(s, e int) *Reader {
-	r := NewReader(T.Slice(s, e))
-	r.noZero = T.noZero
-	return r
-}
+	switch rv.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v = rv.Int()
+	case reflect.Float32, reflect.Float64:
+		v = int64(rv.Float())
+	}
 
-//读取值是切片类型的
-//	i int				索引位置
-//	def nterface{}		默认值
-//	interface{}			读取到的切片值
-//	
-//	例如：[1,2,3,4,5,6] Index(1,11) == 1  或 Index(8,22) == 22
-func (T *Reader) Index(i int, def ... interface{}) interface{} {
-	as := T.Slice(i,i+1)
-	if len(as) == 0 || T.noZero && as[0] == nil {
+	if v == 0 {
 		for _, f := range def {
-			if f != nil {
-				return f
-			}
-		}
-		return nil
-	}
-	return as[0]
-}
-
-//读取值是切片类型的
-//	i int				索引位置
-//	def nterface{}		默认值
-//	*Reader				读取到的切片值
-//	
-//	例如：[1,2,[7,8,9,0],4,5,6] NewIndex(2,[11,22,33]) == *[7,8,9,0]  或 NewIndex(3,[11,22,33]) == *[] 或 NewIndex(33,[11,22,33]) == *[11,22,33]
-func (T *Reader) NewIndex(i int, def ... interface{}) *Reader {
-	r := NewReader(T.Index(i, def...))
-	r.noZero = T.noZero
-	return r
-}
-
-//读取切片类型的值是字符串类型的
-//	i int				索引位置
-//	def string			默认值
-//	string				读取到的切片值
-//	
-//	例如：["1","2",[7,8,9,0],"4","5","6"] IndexString(1,"11") == "2"  或 IndexString(2,"22") == "22"
-func (T *Reader) IndexString(i int, def ... string) string {
-	v, ok := T.Index(i).(string)
-	if !ok || T.noZero && v == "" {
-		for _, f := range def {
-			if f != "" {
+			if f != 0 {
 				return f
 			}
 		}
@@ -413,79 +230,16 @@ func (T *Reader) IndexString(i int, def ... string) string {
 	return v
 }
 
-
-//读取切片类型的值是浮点数类型的
-//	i int				索引位置
-//	def float64			默认值
-//	float64				读取到的浮点数
-//	
-//	例如：[1,2,[7,8,9,0],4,5,6] IndexInt64(1,11) == 2  或 IndexInt64(2,22) == 22
-func (T *Reader) IndexFloat64(i int, def ... float64) float64 {
-	rv := reflect.ValueOf(T.Index(i))
-	var (
-		f64 float64
-		notExists bool
-	)
-	switch rv.Kind() {
-	case reflect.Float32,reflect.Float64:
-		f64 = rv.Float()
-	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
-		f64 = float64(rv.Int())
-	default:
-		notExists = true
-	}
-	//1，强制不为0
-	//2，不存在该字段
-	if T.noZero && f64 == 0 || notExists {
-		for _, f := range def {
-			if f != 0 {
-				return f
-			}
-		}
-	}
-	return f64
-}
-//读取切片类型的值是整数类型的
-//	i int				索引位置
-//	def int64			默认值
-//	int64				读取到的整数
-//	
-//	例如：[1,2,[7,8,9,0],4,5,6] IndexInt64(1,11) == 2  或 IndexInt64(2,22) == 22
-func (T *Reader) IndexInt64(i int, def ... int64) int64 {
-	rv := reflect.ValueOf(T.Index(i))
-	var (
-		i64 int64
-		notExists bool
-	)
-	switch rv.Kind() {
-	case reflect.Int,reflect.Int8,reflect.Int16,reflect.Int32,reflect.Int64:
-		i64 = rv.Int()
-	case reflect.Float32,reflect.Float64:
-		i64 = int64(rv.Float())
-	default:
-		notExists = true
-	}
-	//1，强制不为0
-	//2，不存在该字段
-	if T.noZero && i64 == 0 || notExists {
-		for _, f := range def {
-			if f != 0 {
-				return f
-			}
-		}
-	}
-	return i64
-}
-
-//读取切片类型的值是数组类型的
-//	i int				索引位置
-//	def []interface{}	默认值
-//	[]interface{}		读取到的切片值
-//	
-//	例如：[[1],[2]] IndexArray(1,[]interface{1,2}) == [2] 或 IndexArray(3,[]interface{1,2}) == [1,2]
-func (T *Reader) IndexArray(i int, def ... []interface{}) []interface{} {
-	v, ok := T.Index(i).([]interface{})
-	if !ok || T.noZero && len(v) == 0 {
+// 读取值是接口类型的
+//
+//	key any			键名
+//	def any		默认值
+//	any			读取的接口类型，需要转换
+//
+//	例如：{"a":"b"} Interface("a","c") == "b" 或 Interface("b","c") == "c"
+func (T *Reader) Any(key any, def ...any) any {
+	v := T.val(key)
+	if v == nil {
 		for _, f := range def {
 			if f != nil {
 				return f
@@ -495,86 +249,112 @@ func (T *Reader) IndexArray(i int, def ... []interface{}) []interface{} {
 	return v
 }
 
-//读取切片类型的值是数组类型的
-//	i int				索引位置
-//	def []interface{}	默认值
-//	*Reader				读取到的切片值
-//	
-//	例如：[[1],[2]] NewIndexArray(1,[]interface{1,2}) == *[2] 或 NewIndexArray(3,[]interface{1,2}) == *[1,2]
-func (T *Reader) NewIndexArray(i int, def ... []interface{}) *Reader {
-	r := NewReader(T.IndexArray(i, def...))
-	r.noZero = T.noZero
-	return r
+// 读取值是接口类型的
+//
+//	key any			键名
+//	def any		默认值
+//	any			读取的接口类型，需要转换
+//
+//	例如：{"a":{"b":123}} NewInterface("a",*{"b":456}) == *{"b":123} 或 NewInterface("b",*{"b":456}) == *{"b":456}
+func (T *Reader) NewAny(key any, def ...any) *Reader {
+	return NewReader(T.Any(key, def...))
 }
 
-//重置，如果需要重置为空，需要先调用一次.Reset(nil)
-//	i interface{}	支持格式，包括：map,array,slice,io.Reader,*string, []byte
-//	error			错误
-func (T *Reader) Reset(i interface{}) error {
-	T.m.Lock()
-	defer T.m.Unlock()
-	var(
-		err error
-		tm = T.M
-	)
-	T.M = make(map[string]interface{})
-	
-	//原类型判断
-	switch iv := i.(type) {
-	case io.Reader:
-		err = json.NewDecoder(iv).Decode(&T.M)
-	case *string:
-		err = json.NewDecoder(bytes.NewBufferString(*iv)).Decode(&T.M)
-	case string:
-		err = json.NewDecoder(bytes.NewBufferString(iv)).Decode(&T.M)
-	case []byte:
-		err = json.NewDecoder(bytes.NewBuffer(iv)).Decode(&T.M)
-  	}
-  	//发生错误，恢复
-	if err != nil {
-		T.M = tm
-		return err
+// 读取值是数组类型的
+//
+//	key any				键名
+//	def []any		默认值
+//	[]any			读取的数组类型
+//
+//	例如：{"a":[1,3,4,5,6]} Array("a",[7,8,9,0]) == [1,3,4,5,6] 或 Array("b",[7,8,9,0]) == [7,8,9,0]
+func (T *Reader) Slice(key any, def ...[]any) []any {
+	v, _ := T.val(key).([]any)
+	if len(v) == 0 {
+		for _, f := range def {
+			if f != nil {
+				return f
+			}
+		}
 	}
-	//成功后
-	if len(T.M) != 0 {
-		T.A = T.A[0:0]
-		return nil
-	}
-	
-	//其它类型
+	return v
+}
+
+// 读取值是数组类型的
+//
+//	key any				键名
+//	def []any		默认值
+//	[]any			读取的数组类型
+//
+//	例如：{"a":[1,3,4,5,6]} Array("a",[7,8,9,0]) == *[1,3,4,5,6] 或 Array("b",[7,8,9,0]) == *[7,8,9,0]
+func (T *Reader) NewSlice(key any, def ...[]any) *Reader {
+	return NewReader(T.Slice(key, def...))
+}
+
+func (T *Reader) otherLoad(i any) error {
 	rv := reflect.ValueOf(i)
+	tm := make(map[string]any)
 	for rv.Kind() == reflect.Interface || rv.Kind() == reflect.Ptr {
 		rv = rv.Elem()
 	}
 	switch typ := rv.Kind(); typ {
 	case reflect.Map:
-		if m, ok := rv.Interface().(map[string]interface{}); ok {
-			T.M = m
-			T.A = T.A[0:0]
-			return nil
+		mr := rv.MapRange()
+		for mr.Next() {
+			tm[fmt.Sprint(mr.Key().Interface())] = mr.Value().Interface()
 		}
-		return errors.New("vbody.Reader.Reset: 无法转换数据类型为map[string]interface{}")
+		T.A = T.A[0:0]
+		T.M = tm
 	case reflect.Array, reflect.Slice:
-		if a, ok := rv.Interface().([]interface{}); ok {
-	 		T.A = a
-	 		return nil
-		}
-		return errors.New("vbody.Reader.Reset: 无法转换数据类型为[]interface{}")
-	case reflect.String:
-		err = json.NewDecoder(bytes.NewBufferString(rv.String())).Decode(&T.M)
-		if err != nil {
-			T.M = tm
-			return err
+		T.M = tm
+		T.A = T.A[0:0]
+		for i := 0; i < rv.Len(); i++ {
+			T.A = append(T.A, rv.Index(i).Interface())
 		}
 	default:
-		//恢复
-		T.M = tm
-		return errors.New("vbody.Reader.Reset: 无法转换数据类型为"+typ.String())
+		return errors.New("cannot convert data type " + typ.String())
 	}
 	return nil
 }
 
-//从r读取字节串并解析成Reader
+// 重置，如果需要重置为空，需要先调用一次.Reset(nil)
+//
+//	i any	支持格式，包括：map,array,slice,io.Reader,*string, []byte
+//	error			错误
+func (T *Reader) Reset(i any) error {
+	T.m.Lock()
+	defer T.m.Unlock()
+
+	var (
+		err error
+		tm  = make(map[string]any)
+	)
+
+	// 原类型判断
+	switch iv := i.(type) {
+	case io.Reader:
+		err = json.NewDecoder(iv).Decode(&tm)
+	case *string:
+		err = json.NewDecoder(bytes.NewBufferString(*iv)).Decode(&tm)
+	case string:
+		err = json.NewDecoder(bytes.NewBufferString(iv)).Decode(&tm)
+	case []byte:
+		err = json.NewDecoder(bytes.NewBuffer(iv)).Decode(&tm)
+	default:
+		return T.otherLoad(i)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	T.M = tm
+	T.A = T.A[0:0]
+
+	return nil
+}
+
+// 从r读取字节串并解析成Reader
+//
 //	r io.Reader	字节串读接口
 //	int64		读取长度
 //	error		错误
@@ -588,7 +368,8 @@ func (T *Reader) ReadFrom(r io.Reader) (int64, error) {
 	return 0, err
 }
 
-//Reader转字节串
+// Reader转字节串
+//
 //	[]byte	字节串，如：[]byte(`{"A":1}`)
 //	error	错误
 func (T *Reader) MarshalJSON() ([]byte, error) {
@@ -601,13 +382,14 @@ func (T *Reader) MarshalJSON() ([]byte, error) {
 	return b, err
 }
 
-//字节串解析成Reader
+// 字节串解析成Reader
+//
 //	data []byte	字节串，如：[]byte(`{"A":1}`)
 //	error		错误
 func (T *Reader) UnmarshalJSON(data []byte) error {
 	T.m.Lock()
 	defer T.m.Unlock()
-	err :=json.Unmarshal(data, &T.M)
+	err := json.Unmarshal(data, &T.M)
 	if err == nil {
 		T.A = T.A[0:0]
 	}

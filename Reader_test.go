@@ -1,115 +1,88 @@
 package vbody
 
-import(
-	"testing"
+import (
 	"bytes"
+	"testing"
 )
 
-
 func Test_Reader_NewReader(t *testing.T) {
-	br := &bytes.Reader{}
+	br := new(bytes.Reader)
 	br.Reset([]byte(`{"username":"yourname","email":"yourname@yourdomain.com","password":"yourpassword","a":[1,2.1,"3"]}`))
 
 	bodyr := NewReader(nil)
 	bodyr.ReadFrom(br)
-	bras := bodyr.NewArray("a", nil)
-	bras.A=append(bras.A,int(4))
+	bras := bodyr.NewSlice("a")
+	bras.A = append(bras.A, int(4))
 
-	if f := bras.IndexFloat64(0, -1); f != 1 {
+	if f := bras.Float64(0); f != 1 {
 		t.Fatalf("预测 1，结果 %f", f)
 	}
-	if f := bras.IndexFloat64(1, -1); f != 2.1 {
+	if f := bras.Float64(1); f != 2.1 {
 		t.Fatalf("预测 2.1，结果 %f", f)
 	}
-	if s := bras.IndexString(2, "-3"); s != "3" {
+	if s := bras.String(2); s != "3" {
 		t.Fatalf("预测 3，结果 %s", s)
 	}
-	if d := bras.IndexInt64(3, -3); d != 4 {
-		t.Fatalf("预测 4，结果 %d",d)
+	if d := bras.Int64(3); d != 4 {
+		t.Fatalf("预测 4，结果 %d", d)
 	}
 }
 
-func Test_Reader_IsNil(t *testing.T){
+func Test_Reader_IsNil(t *testing.T) {
 	bodyr := NewReader(nil)
 	err := bodyr.Reset([]byte(`{"a":null,"c":0, "d":[null,0]}`))
-	if err != nil  {
+	if err != nil {
 		t.Fatal(err)
 	}
+
 	if !bodyr.IsNil("a") {
-		t.Fatal("错误")
+		t.Fatal("error")
 	}
 	if !bodyr.IsNil("b") {
-		t.Fatal("错误")
+		t.Fatal("error")
 	}
 	if bodyr.IsNil("c") {
-		t.Fatal("错误")
+		t.Fatal("error")
 	}
-	d := bodyr.NewArray("d", nil)
-	if !d.Has(0,1) {
-		t.Fatal("错误")
+	d := bodyr.NewSlice("d")
+	if !d.Has(0, 1) {
+		t.Fatal("error")
 	}
-	
-	if d.Index(0, 1) != nil {
-		t.Fatal("错误")
+
+	if d.Any(0) != nil {
+		t.Fatal("error")
 	}
-	if d.Index(1, 1) == nil {
-		t.Fatal("错误")
+	if d.Any(1) == nil {
+		t.Fatal("error")
 	}
 }
 
-func Test_Reader_NoZero(t *testing.T){
+func Test_Reader_Reset(t *testing.T) {
 	bodyr := NewReader(nil)
-	err := bodyr.Reset([]byte(`{"a":null,"c":0, "d":[null,0]}`))
-	if err != nil  {
+
+	if err := bodyr.Reset([]byte(`{"a":[1,2,3,4]}`)); err != nil {
 		t.Fatal(err)
 	}
-	nr := bodyr.NoZero(true)
-	if !nr.noZero {
-		t.Fatal("错误")
-	}
-	i := nr.Int64("c", 1)
-	if i != 1 {
-		t.Fatal("错误")
-	}
-	if bodyr.noZero {
-		t.Fatal("错误")
-	}
-	err = bodyr.Reset([]byte(`{"b":"1"}`))
-	if err != nil  {
+
+	br := bodyr.NewSlice("a")
+	if err := br.Reset(map[string]any{"1": "1"}); err != nil {
 		t.Fatal(err)
 	}
-	if !nr.StringAnyEqual("", "b") {
-		t.Fatal("错误")
+
+	t.Log(br)
+
+	if len(br.M) == 0 {
+		t.Fatal("error")
 	}
-	//t.Log(bodyr.M, nr.M)
 }
 
-
-func Test_Reader_Reset(t *testing.T){
+func Test_Reader_String(t *testing.T) {
 	bodyr := NewReader(nil)
 	err := bodyr.Reset([]byte(`{"a":[1,2,3,4]}`))
-	if err != nil  {
+	if err != nil {
 		t.Fatal(err)
 	}
-	bodyr = bodyr.NewArray("a",nil)
-	nr := bodyr.NoZero(true)
-	
-	bodyr.Reset(map[string]interface{}{"1":"1"})
-	if err != nil  {
-		t.Fatal(err)
-	}
-	if len(bodyr.A) != 0 || len(nr.A) == 0 {
-		t.Fatal(bodyr.A, nr.A)
-	}
-}
-
-func Test_Reader_1(t *testing.T){
-	bodyr := NewReader(nil)
-	err := bodyr.Reset([]byte(`{"a":[1,2,3,4]}`))
-	if err != nil  {
-		t.Fatal(err)
-	}
-	if bodyr.String("a","123") != "123" {
-		t.Fatal("错误")
+	if bodyr.String("a", "123") != "123" {
+		t.Fatal("error")
 	}
 }
