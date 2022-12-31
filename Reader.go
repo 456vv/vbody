@@ -296,14 +296,19 @@ func (T *Reader) otherLoad(i any) error {
 	for rv.Kind() == reflect.Interface || rv.Kind() == reflect.Ptr {
 		rv = rv.Elem()
 	}
-	switch typ := rv.Kind(); typ {
+	switch kind := rv.Kind(); kind {
 	case reflect.Map:
-		mr := rv.MapRange()
-		for mr.Next() {
-			tm[fmt.Sprint(mr.Key().Interface())] = mr.Value().Interface()
+		rt := rv.Type()
+		if rt.Key().Kind() == reflect.String && rt.Elem().Kind() == reflect.Interface {
+			reflect.ValueOf(&T.M).Elem().Set(rv)
+		} else {
+			mr := rv.MapRange()
+			for mr.Next() {
+				tm[fmt.Sprint(mr.Key().Interface())] = mr.Value().Interface()
+			}
+			T.M = tm
 		}
 		T.A = T.A[0:0]
-		T.M = tm
 	case reflect.Array, reflect.Slice:
 		T.M = tm
 		T.A = T.A[0:0]
@@ -311,7 +316,7 @@ func (T *Reader) otherLoad(i any) error {
 			T.A = append(T.A, rv.Index(i).Interface())
 		}
 	default:
-		return errors.New("cannot convert data type " + typ.String())
+		return errors.New("cannot convert data type " + kind.String())
 	}
 	return nil
 }
