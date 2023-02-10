@@ -8,13 +8,15 @@ import (
 	"net/http"
 	"reflect"
 	"text/template"
+	"sync"
 )
 
 type Writer struct {
 	M map[string]any // 写记录
+	m sync.Mutex
 }
 
-// 写，这是http响应的一种特定格式。采用格式为：{"Status":200,"Message":"内容","Result":[{...},{...}]}
+// 写，这是http响应的一种特定格式。采用格式为：{"Code":0,"Message":"内容","Result":[{...},{...}]}
 func NewWriter() *Writer {
 	return &Writer{M: make(map[string]any)}
 }
@@ -22,14 +24,20 @@ func NewWriter() *Writer {
 // 状态
 //
 //	d int	状态码
-func (T *Writer) Status(d int) {
-	T.M["Status"] = d
+func (T *Writer) Code(d int) {
+	T.m.Lock()
+	defer T.m.Unlock()
+	
+	T.M["Code"] = d
 }
 
 // 提示内容
 //
 //	s any	内容
 func (T *Writer) Message(s any) {
+	T.m.Lock()
+	defer T.m.Unlock()
+	
 	T.M["Message"] = template.JSEscaper(s)
 }
 
@@ -38,34 +46,40 @@ func (T *Writer) Message(s any) {
 //	f string			格式
 //	a ...any	参数
 func (T *Writer) Messagef(f string, a ...any) {
-	T.M["Message"] = template.JSEscapeString(fmt.Sprintf(f, a...))
+	T.Message(fmt.Sprintf(f, a...))
 }
 
 // 设置结果
 //
-//	i any	结果
-func (T *Writer) SetResult(i any) {
-	T.M["Result"] = i
+//	val any	结果
+func (T *Writer) SetResult(val any) {
+	T.m.Lock()
+	defer T.m.Unlock()
+	
+	T.M["Result"] = val
 }
 
 // 设置结果
 //
 //	key string		键名
-//	i any	值
-func (T *Writer) Result(key string, i any) {
-	if t, ok := i.([]byte); ok {
-		i = json.RawMessage(t)
+//	val any	值
+func (T *Writer) Result(key string, val any) {
+	T.m.Lock()
+	defer T.m.Unlock()
+	
+	if t, ok := val.([]byte); ok {
+		val = json.RawMessage(t)
 	}
 	v := reflect.ValueOf(T.M["Result"])
-	for ; v.Kind() == reflect.Ptr; v = v.Elem() {
+	for ; v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface; v = v.Elem() {
 	}
 	switch v.Kind() {
 	case reflect.Map:
-		v.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(i))
+		v.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(val))
 	default:
-		m := make(map[string]any)
-		m[key] = i
-		T.M["Result"] = m
+		T.M["Result"] = map[string]any{
+			key: val,
+		}
 	}
 }
 
@@ -94,8 +108,11 @@ func (T *Writer) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (T *Writer) ready() error {
-	if _, ok := T.M["Status"]; !ok {
-		T.M["Status"] = 200
+	T.m.Lock()
+	defer T.m.Unlock()
+	
+	if _, ok := T.M["Code"]; !ok {
+		T.M["Code"] = 0
 	}
 	resultInf, ok := T.M["Result"]
 	if !ok {
