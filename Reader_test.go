@@ -10,7 +10,7 @@ func Test_Reader_NewReader(t *testing.T) {
 	br.Reset([]byte(`{"username":"yourname","email":"yourname@yourdomain.com","password":"yourpassword","a":[1,2.1,"3"]}`))
 
 	bodyr := NewReader(nil)
-	bodyr.ReadFrom(br)
+	bodyr.Decode(br)
 	bras := bodyr.NewSlice("a")
 	bras.A = append(bras.A, int(4))
 

@@ -361,16 +361,21 @@ func (T *Reader) Reset(i any) error {
 // 从r读取字节串并解析成Reader
 //
 //	r io.Reader	字节串读接口
-//	int64		读取长度
 //	error		错误
-func (T *Reader) ReadFrom(r io.Reader) (int64, error) {
+func (T *Reader) Decode(r io.Reader) error {
 	T.m.Lock()
 	defer T.m.Unlock()
-	err := json.NewDecoder(r).Decode(&T.M)
-	if err == nil {
-		T.A = T.A[0:0]
-	}
-	return 0, err
+	return json.NewDecoder(r).Decode(&T.M)
+}
+
+// 将M转为json写入到w中
+//
+//	w io.Writer 字节串写接口
+//	error		错误
+func (T *Reader) Encode(w io.Writer) error {
+	T.m.Lock()
+	defer T.m.Unlock()
+	return json.NewEncoder(w).Encode(T.M)
 }
 
 // Reader转字节串
@@ -380,11 +385,7 @@ func (T *Reader) ReadFrom(r io.Reader) (int64, error) {
 func (T *Reader) MarshalJSON() ([]byte, error) {
 	T.m.RLock()
 	defer T.m.RUnlock()
-	b, err := json.Marshal(&T.M)
-	if err == nil {
-		T.A = T.A[0:0]
-	}
-	return b, err
+	return json.Marshal(&T.M)
 }
 
 // 字节串解析成Reader
@@ -394,9 +395,5 @@ func (T *Reader) MarshalJSON() ([]byte, error) {
 func (T *Reader) UnmarshalJSON(data []byte) error {
 	T.m.Lock()
 	defer T.m.Unlock()
-	err := json.Unmarshal(data, &T.M)
-	if err == nil {
-		T.A = T.A[0:0]
-	}
-	return err
+	return json.Unmarshal(data, &T.M)
 }
