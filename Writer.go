@@ -24,46 +24,49 @@ func NewWriter() *Writer {
 // 状态
 //
 //	d int	状态码
-func (T *Writer) Code(d int) {
+func (T *Writer) Code(d int) *Writer {
 	T.m.Lock()
 	defer T.m.Unlock()
 	
 	T.M["Code"] = d
+	return T
 }
 
 // 提示内容
 //
 //	s any	内容
-func (T *Writer) Message(s any) {
+func (T *Writer) Message(s any) *Writer {
 	T.m.Lock()
 	defer T.m.Unlock()
 	
 	T.M["Message"] = template.JSEscaper(s)
+	return T
 }
 
 // 提示内容，支持fmt.Sprintf 格式
 //
 //	f string			格式
 //	a ...any	参数
-func (T *Writer) Messagef(f string, a ...any) {
-	T.Message(fmt.Sprintf(f, a...))
+func (T *Writer) Messagef(f string, a ...any) *Writer {
+	return T.Message(fmt.Sprintf(f, a...))
 }
 
 // 设置结果
 //
 //	val any	结果
-func (T *Writer) SetResult(val any) {
+func (T *Writer) SetResult(val any) *Writer {
 	T.m.Lock()
 	defer T.m.Unlock()
 	
 	T.M["Result"] = val
+	return T
 }
 
 // 设置结果
 //
 //	key string		键名
 //	val any	值
-func (T *Writer) Result(key string, val any) {
+func (T *Writer) Result(key string, val any) *Writer {
 	T.m.Lock()
 	defer T.m.Unlock()
 	
@@ -81,6 +84,7 @@ func (T *Writer) Result(key string, val any) {
 			key: val,
 		}
 	}
+	return T
 }
 
 // 写入到w
